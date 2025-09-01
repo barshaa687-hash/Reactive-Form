@@ -67,7 +67,6 @@ export class FormComponentComponent {
   ngOnInit() {
     const savedForm = localStorage.getItem('myForm');
     const initialData = savedForm ? JSON.parse(savedForm) : this.jsonForm;
-    console.log('initial data', initialData)
     this.templateKeywords.set(initialData.tags);
     this.buildForm(initialData);
     this.myForm.get('settings.theme')?.valueChanges.subscribe((theme: string) => {
@@ -112,7 +111,6 @@ export class FormComponentComponent {
 
     const value = event.target.value;
     this.inputValue = value;
-    console.log("paste value ", value)
     try {
         const parsed = JSON.parse(value);
 
