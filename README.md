@@ -1,3 +1,7 @@
+#Improvements Required
+1.Refine theme styling for better UI.
+2.Provide more descriptive error messages for invalid JSON.
+
 # ReactiveFormCrewMojo
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.11.
