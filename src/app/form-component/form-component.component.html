@@ -1,0 +1,108 @@
+<div style="height: 100vh; width:100vw;" [ngClass]="selectedTheme">
+    <form [formGroup]="myForm" style="padding:10px">
+        <h2>Crew Mojo Form</h2>
+        <div class="form-grid">
+            <!-- Name -->
+            <mat-form-field appearance="outline" class="full-width small-form-field">
+                <mat-label>Name</mat-label>
+                <input matInput formControlName="name" />
+                @if( myForm.get('name')?.hasError('required')){<mat-error>
+                    Name is required.
+                </mat-error>}
+                @if (myForm.get('name')?.hasError('minlength')) {
+                <mat-error>Name must be at least 3 characters long.</mat-error>
+                }
+            </mat-form-field>
+
+            <!-- Description -->
+            <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Description</mat-label>
+                <textarea matInput formControlName="description"></textarea>
+            </mat-form-field>
+
+            <!-- Tags -->
+            <mat-form-field appearance="outline">
+                <mat-label>Tags</mat-label>
+                <mat-chip-grid #templateChipGrid aria-label="Enter template form keywords" formControlName="tags">
+                    @for (keyword of templateKeywords(); track keyword) {
+                    <mat-chip-row (removed)="removeTemplateKeyword(keyword)">
+                        {{keyword}}
+                        <button matChipRemove [attr.aria-label]="'remove template form' + keyword">
+                            <mat-icon>cancel</mat-icon>
+                        </button>
+                    </mat-chip-row>
+                    }
+                </mat-chip-grid>
+                <input placeholder="New Tag..." [matChipInputFor]="templateChipGrid"
+                    (matChipInputTokenEnd)="addTemplateKeyword($event)" />
+            </mat-form-field>
+        </div>
+
+        <!-- Settings Section -->
+        <div formGroupName="settings" class="form-grid">
+            <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Theme</mat-label>
+                <mat-select formControlName="theme">
+                    <mat-option value="light">Light</mat-option>
+                    <mat-option value="dark">Dark</mat-option>
+                    <mat-option value="system">System</mat-option>
+                </mat-select>
+                @if(myForm.get('settings.theme')?.hasError('required')){
+                    <mat-error >
+                        Theme is required.
+                    </mat-error>
+                }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Refresh Interval (seconds)</mat-label>
+                <input type="number" matInput formControlName="refreshInterval" />
+                <mat-error *ngIf="myForm.get('settings.refreshInterval')?.hasError('pattern')">
+                    Refresh interval must be a positive number.
+                </mat-error>
+            </mat-form-field>
+
+            <mat-slide-toggle formControlName="notifications">
+                Notifications
+            </mat-slide-toggle>
+        </div>
+
+
+        <!-- Members Section -->
+        <h3>Members</h3>
+        <div formArrayName="members" class="form-grid-member">
+            <div *ngFor="let member of members.controls; let i = index" [formGroupName]="i" class="mb-3">
+                <mat-form-field appearance="outline" class="full-width" style="margin-right:10px">
+                    <mat-label>Member Name</mat-label>
+                    <input matInput formControlName="name" />
+                    <mat-error *ngIf="members.at(i).get('name')?.hasError('required')">
+                        Member name is required
+                    </mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Role</mat-label>
+                    <mat-select formControlName="role">
+                        <mat-option value="Admin">Admin</mat-option>
+                        <mat-option value="User">User</mat-option>
+                    </mat-select>
+                    <mat-error *ngIf="members.at(i).get('role')?.hasError('required')">
+                        Role is required
+                    </mat-error>
+                </mat-form-field>
+
+                <button mat-button color="warn" type="button" (click)="removeMember(i)">Remove</button>
+            </div>
+            <button style="margin-bottom:10px" mat-raised-button color="accent" type="button" (click)="addMember()">
+                Add Member
+            </button>
+            <button style="margin-bottom:10px;margin-left:15px" [disabled]="!myForm.valid" mat-raised-button color="accent" type="button" (click)="onSubmit()">
+                Submit
+            </button>
+        </div>
+    
+        <h3>Form JSON:</h3>
+        <textarea [value]="myForm.value | json" rows="15" cols="50"
+            (input)="onJsonInputChange($event)"></textarea>
+    </form>
+</div>
