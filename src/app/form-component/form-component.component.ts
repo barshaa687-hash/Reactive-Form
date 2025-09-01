@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, WritableSignal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormArray } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -6,10 +6,21 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatSelectModule } from '@angular/material/select';
 import { MatChipsModule, MatChipInputEvent } from '@angular/material/chips';
-import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
+
+interface IFormType {
+  name: string,
+  description: string,
+  tags: string[],
+  settings: {
+    notifications: boolean,
+    theme: string,
+    refreshInterval: number
+  },
+  members: { id: number, name: string, role: string }[]
+}
 
 @Component({
   selector: 'app-form-component',
@@ -28,12 +39,15 @@ import { MatIconModule } from '@angular/material/icon';
   styleUrl: './form-component.component.scss'
 })
 export class FormComponentComponent {
-  myForm: FormGroup;
-  readonly templateKeywords = signal(['test']);
-  announcer = inject(LiveAnnouncer);
-  theme: 'light' | 'dark' | 'system' = 'light'
-  selectedTheme = 'light-theme';
-  jsonForm = {
+  private fb = inject(FormBuilder);
+
+  myForm!: FormGroup;
+  readonly templateKeywords = signal<string[]>(['test']);
+  readonly selectedTheme: WritableSignal<string> = signal('light-theme');
+  readonly isJsonValid: WritableSignal<boolean> = signal(true);
+
+
+  jsonForm: IFormType = {
     "name": "Crewmojo Demo",
     "description": "Testing reactive form coding task",
     "tags": ["angular", "forms", "json"],
@@ -48,73 +62,82 @@ export class FormComponentComponent {
     ]
   }
 
-  constructor(private fb: FormBuilder) {
+  inputValue: unknown;
+
+  ngOnInit() {
     const savedForm = localStorage.getItem('myForm');
     const initialData = savedForm ? JSON.parse(savedForm) : this.jsonForm;
+    console.log('initial data', initialData)
     this.templateKeywords.set(initialData.tags);
+    this.buildForm(initialData);
+    this.myForm.get('settings.theme')?.valueChanges.subscribe((theme: string) => {
+      this.selectedTheme.set(`${theme}-theme`);
 
-    this.myForm = this.fb.group({
-      name: [initialData.name, [Validators.required, Validators.minLength(3)]],
-      description: [initialData.description],
-      tags: [initialData.tags],
-
-      // nested object (settings)
-      settings: this.fb.group({
-        notifications: [initialData.settings.notifications],
-        theme: [initialData.settings.theme, Validators.required],
-        refreshInterval: [initialData.settings.refreshInterval, [Validators.pattern("^[1-9][0-9]*$")]]
-      }),
-
-      // array of objects (members)
-      members: this.fb.array(
-        initialData.members.map((m: any) =>
-          this.fb.group({
-            id: [m.id],
-            name: [m.name, Validators.required],
-            role: [m.role, Validators.required]
-          })
-        )
-      )
     });
 
     this.myForm.valueChanges.subscribe(value => {
-      console.log(value)
       localStorage.setItem('myForm', JSON.stringify(value));
+      this.isJsonValid.set(true)
     });
   }
 
-  ngOnInit() {
-    this.myForm.get('settings.theme')?.valueChanges.subscribe(theme => {
-      this.selectedTheme = theme + '-theme'; // maps "light" → "light-theme"
+  buildForm(data: IFormType) {
+    this.myForm = this.fb.group({
+      name: [data.name, [Validators.required, Validators.minLength(3)]],
+      description: [data.description],
+      tags: [data.tags],
+      settings: this.fb.group({
+        notifications: [data.settings.notifications],
+        theme: [data.settings.theme, Validators.required],
+        refreshInterval: [data.settings.refreshInterval, [Validators.pattern("^[1-9][0-9]*$")]]
+      }),
+      members: this.fb.array([])
+    })
+    this.buildMemberFormArray(data.members)
+  }
+
+  private buildMemberFormArray(members: any[]) {
+    const formArray = this.myForm.get('members') as FormArray;
+    members.forEach(memberData => {
+      formArray.push(
+        this.fb.group({
+          name: [memberData.name, Validators.required],
+          role: [memberData.role],
+        })
+      );
     });
   }
 
   onJsonInputChange(event: any) {
+
     const value = event.target.value;
+    this.inputValue = value;
+    console.log("paste value ", value)
     try {
-      const parsed = JSON.parse(value);
+        const parsed = JSON.parse(value);
 
-      // Rebuild members FormArray
-      if (parsed.members && Array.isArray(parsed.members)) {
-        const membersArray = this.fb.array(
-          parsed.members.map((m: any) =>
-            this.fb.group({
-              id: [m.id],
-              name: [m.name, Validators.required],
-              role: [m.role, Validators.required]
-            })
-          )
-        );
-        this.myForm.setControl('members', membersArray);
+        if (parsed.members && Array.isArray(parsed.members) && parsed.tags && Array.isArray(parsed.tags)) {
+          this.isJsonValid.set(true);
+
+        if (parsed.members && Array.isArray(parsed.members)) {
+          const membersArray = this.fb.array(
+            parsed.members.map((m: any) =>
+              this.fb.group({
+                id: [m.id],
+                name: [m.name, Validators.required],
+                role: [m.role, Validators.required]
+              })
+            )
+          );
+          this.myForm.setControl('members', membersArray);
+        }
+
+        if (parsed.tags && Array.isArray(parsed.tags)) {
+          this.templateKeywords.set(parsed.tags);
+          this.myForm.get('tags')?.setValue(parsed.tags);
+        }
       }
 
-      // Rebuild tags FormArray if you want it as an array
-      if (parsed.tags && Array.isArray(parsed.tags)) {
-        this.templateKeywords.set(parsed.tags);
-        this.myForm.get('tags')?.setValue(parsed.tags);
-      }
-
-      // Patch the rest of the form (excluding arrays already handled)
       this.myForm.patchValue(
         {
           name: parsed.name,
@@ -124,6 +147,7 @@ export class FormComponentComponent {
         { emitEvent: false }
       );
     } catch (e) {
+      this.isJsonValid.set(false);
       console.warn('Invalid JSON, cannot update form.', e);
     }
   }
@@ -137,7 +161,6 @@ export class FormComponentComponent {
       keywords.splice(index, 1);
       const updated = [...keywords];
       updated.splice(index, 1);
-      this.announcer.announce(`removed ${keyword} from template form`);
       this.myForm.get('tags')?.setValue(updated);
       return [...keywords];
     });
@@ -145,21 +168,15 @@ export class FormComponentComponent {
 
   addTemplateKeyword(event: MatChipInputEvent): void {
     const value = (event.value || '').trim();
-
-    // Add our keyword
     if (value) {
       this.templateKeywords.update(keywords => [...keywords, value]);
-      // Update the tags form control
       const currentTags = this.myForm.get('tags')?.value || [];
-      this.myForm.get('tags')?.setValue([...currentTags, value]); 
-      this.announcer.announce(`added ${value} to template form`);
+      this.myForm.get('tags')?.setValue([...currentTags, value]);
     }
 
-    // Clear the input value
     event.chipInput!.clear();
   }
 
-  // Getter for the members FormArray
   get members(): FormArray {
     return this.myForm.get('members') as FormArray;
   }
@@ -177,7 +194,7 @@ export class FormComponentComponent {
   }
 
   onSubmit() {
-    alert("form submiteed!!")
+    alert("Form submited!!")
   }
 
 

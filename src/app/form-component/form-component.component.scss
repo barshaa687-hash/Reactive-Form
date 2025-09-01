@@ -34,7 +34,6 @@
   color: #f5f5f5;
 }
 
-/* Optional: placeholder text color */
 .dark-theme mat-form-field input::placeholder,
 .dark-theme mat-form-field textarea::placeholder {
   color: #d0d0d0;
@@ -43,4 +42,9 @@
 .system-theme {
   background-color: var(--system-bg, #f0f0f0);
   color: var(--system-color, #000);
+}
+
+.invalid-json {
+  border: 2px solid red;
+  outline: none;
 }
